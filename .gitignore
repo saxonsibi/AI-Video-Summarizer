@@ -1,0 +1,19 @@
+# Database
+*.sqlite3
+
+# Logs
+*.log
+backend/logs/
+
+# Media files
+backend/media/
+
+# Vector indices / embeddings
+backend/vector_indices/
+
+# Uploaded videos
+*.mp4
+*.mp3
+
+# Django
+db.sqlite3

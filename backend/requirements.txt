@@ -1,0 +1,41 @@
+# Django & REST Framework
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+
+# Database
+mysqlclient>=2.2.0
+
+# Video Processing
+opencv-python>=4.8.0
+moviepy>=2.0.0
+ffmpeg-python>=0.2.0
+
+# AI/ML
+faster-whisper>=1.0.0
+transformers>=4.35.0
+torch>=2.1.0
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-openai>=0.0.5
+langchain-groq>=0.1.0
+
+# NLP
+nltk>=3.8.1
+spacy>=3.7.0
+
+# Celery & Redis
+celery>=5.3.0
+redis>=5.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+Pillow>=10.0.0
+python-magic>=0.4.27
+gTTS>=2.5.0
+pydub>=0.25.1
+
+# API & Documentation
+drf-yasg>=1.21.7
