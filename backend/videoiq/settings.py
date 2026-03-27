@@ -378,6 +378,16 @@ def validate_malayalam_settings():
         if active_settings is not None
         else ASR_MALAYALAM_PRIMARY_MODEL
     ).strip()
+    configured_device = str(
+        getattr(active_settings, 'ASR_MALAYALAM_DEVICE', ASR_MALAYALAM_DEVICE)
+        if active_settings is not None
+        else ASR_MALAYALAM_DEVICE
+    ).strip().lower()
+    should_validate_gpu_vram = configured_device in {'cuda', 'gpu'} or os.environ.get(
+        'ASR_VALIDATE_GPU_VRAM_ON_STARTUP', 'False'
+    ).lower() in ('true', '1', 'yes')
+    if not should_validate_gpu_vram:
+        return
     try:
         import torch
         if torch.cuda.is_available():

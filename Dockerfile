@@ -35,4 +35,4 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "gunicorn videoiq.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 300"]
+CMD ["sh", "-c", "gunicorn videoiq.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --threads ${GUNICORN_THREADS:-1} --timeout 300"]

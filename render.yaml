@@ -33,6 +33,10 @@ services:
           property: connectionString
       - key: PYTHON_VERSION
         value: "3.12.8"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: GUNICORN_THREADS
+        value: "1"
 
   - type: worker
     name: videoiq-worker
@@ -64,6 +68,8 @@ services:
           property: connectionString
       - key: PYTHON_VERSION
         value: "3.12.8"
+      - key: WEB_CONCURRENCY
+        value: "1"
 
 databases:
   - name: videoiq-db
