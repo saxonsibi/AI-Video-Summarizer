@@ -1,14 +1,14 @@
 """
-Celery configuration for AI Video Summarizer
+Celery configuration for VideoIQ AI Video Intelligence System
 """
 
 import os
 from celery import Celery
 
 # Set the default Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ai_video_summarizer.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'videoiq.settings')
 
-app = Celery('ai_video_summarizer')
+app = Celery('videoiq')
 
 # Load config from Django settings
 app.config_from_object('django.conf:settings', namespace='CELERY')

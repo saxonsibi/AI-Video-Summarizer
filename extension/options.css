@@ -1,0 +1,99 @@
+:root {
+  --bg: #0b1220;
+  --panel: #111b31;
+  --text: #edf2ff;
+  --muted: #9ab0d9;
+  --border: rgba(255, 255, 255, 0.14);
+  --brand: #57d4ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(circle at top, #1a2542 0%, var(--bg) 40%);
+  color: var(--text);
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 14px;
+}
+
+.card {
+  background: rgba(17, 27, 49, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #0f1a33;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+input:focus {
+  outline: none;
+  border-color: rgba(87, 212, 255, 0.55);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  border: 1px solid var(--border);
+  background: linear-gradient(140deg, #1b3c62, #214276);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: rgba(87, 212, 255, 0.55);
+}
+
+.message {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(87, 212, 255, 0.4);
+  background: rgba(87, 212, 255, 0.12);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.hidden {
+  display: none;
+}

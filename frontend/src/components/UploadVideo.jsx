@@ -1,16 +1,36 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CloudArrowUpIcon, DocumentIcon, XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { CloudArrowUpIcon, DocumentIcon, EyeIcon, XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { videoAPI } from '../services/api'
+import { useToast } from '../context/ToastContext'
+import { LANGUAGE_OPTIONS } from '../constants/languages'
+import VideoPlayer from './VideoPlayer'
 
 function UploadVideo({ onUploadComplete }) {
   const [dragOver, setDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState(null)
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState('auto')
+  const [outputLanguage, setOutputLanguage] = useState('auto')
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [showPreview, setShowPreview] = useState(false)
   const fileInputRef = useRef(null)
+  const toast = useToast()
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null)
+      return undefined
+    }
+
+    const objectUrl = URL.createObjectURL(selectedFile)
+    setPreviewUrl(objectUrl)
+
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [selectedFile])
 
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -31,11 +51,11 @@ function UploadVideo({ onUploadComplete }) {
   const handleFileSelect = (file) => {
     const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm']
     if (!allowedTypes.includes(file.type)) {
-      setError('Invalid file type. Please upload a video file (MP4, MOV, AVI, MKV, WebM)')
+      toast.error('Invalid file type. Please upload a video file (MP4, MOV, AVI, MKV, WebM)')
       return
     }
     setSelectedFile(file)
-    setError(null)
+    setShowPreview(true)
   }
 
   const handleUpload = async () => {
@@ -49,6 +69,8 @@ function UploadVideo({ onUploadComplete }) {
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('title', selectedFile.name.replace(/\.[^/.]+$/, ''))
+      formData.append('transcription_language', 'auto')
+      formData.append('output_language', 'auto')
 
       await videoAPI.upload(formData, (percent) => {
         setProgress(percent)
@@ -57,24 +79,27 @@ function UploadVideo({ onUploadComplete }) {
       setUploading(false)
       setProgress(100)
       setSuccess(true)
+      toast.success('Video uploaded successfully! Processing started...')
+      
+      // Immediately refresh video list - video will show as pending/queued
+      if (onUploadComplete) {
+        onUploadComplete()
+      }
       
       setTimeout(() => {
         setSelectedFile(null)
         setSuccess(false)
-        if (onUploadComplete) {
-          onUploadComplete()
-        }
-      }, 2000)
+      }, 1500)
       
     } catch (err) {
       setUploading(false)
-      setError(err.response?.data?.error || 'Upload failed. Please try again.')
+      toast.error(err.response?.data?.error || 'Upload failed. Please try again.')
     }
   }
 
   const removeFile = () => {
     setSelectedFile(null)
-    setError(null)
+    setShowPreview(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -224,14 +249,56 @@ function UploadVideo({ onUploadComplete }) {
                   <p className="text-sm text-white/50">{formatFileSize(selectedFile.size)}</p>
                 </div>
               </div>
-              <motion.button
-                onClick={removeFile}
-                className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </motion.button>
+              <div className="flex items-center gap-2">
+                <motion.button
+                  type="button"
+                  onClick={() => setShowPreview((prev) => !prev)}
+                  className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  title="Preview selected video"
+                >
+                  <EyeIcon className="w-5 h-5" />
+                </motion.button>
+                <motion.button
+                  onClick={removeFile}
+                  className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {selectedFile && previewUrl && showPreview && !uploading && !success && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              className="mt-4 rounded-2xl border border-white/10 bg-black/30 overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <h3 className="text-sm font-medium text-white">Preview</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(false)}
+                  className="text-xs text-white/50 hover:text-white"
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="p-4">
+                <VideoPlayer
+                  url={previewUrl}
+                  title={selectedFile?.name || 'Uploaded video preview'}
+                  fit="contain"
+                  showHighlights={false}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -249,20 +316,6 @@ function UploadVideo({ onUploadComplete }) {
             Start Upload
           </motion.button>
         )}
-
-        {/* Error message */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl"
-            >
-              <p className="text-red-400">{error}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </motion.div>
   )

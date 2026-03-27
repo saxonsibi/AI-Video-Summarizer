@@ -38,9 +38,14 @@ class ChatMessage(models.Model):
     
     sender = models.CharField(max_length=10, choices=SENDER_CHOICES)
     message = models.TextField()
+    user_language = models.CharField(max_length=16, default='en')
+    output_language = models.CharField(max_length=16, default='en')
+    retrieval_language = models.CharField(max_length=16, default='en')
     
     # Optional: reference to transcript segments used
     referenced_segments = models.JSONField(blank=True, null=True, help_text='Transcript segments referenced in answer')
+    audio_url = models.CharField(max_length=500, blank=True, default='')
+    voice_narration = models.TextField(blank=True, default='')
     
     created_at = models.DateTimeField(auto_now_add=True)
     

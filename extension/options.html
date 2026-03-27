@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VideoIQ Panel Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card">
+        <h1>VideoIQ Side Panel Settings</h1>
+        <p>Set backend URL used inside the extension side panel iframe.</p>
+
+        <form id="settingsForm">
+          <label for="backendUrl">Backend URL</label>
+          <input id="backendUrl" type="url" placeholder="http://127.0.0.1:8000" required />
+
+          <div class="actions">
+            <button type="submit">Save</button>
+            <button type="button" id="openPanelBtn">Open Panel</button>
+          </div>
+        </form>
+
+        <div id="message" class="message hidden"></div>
+      </section>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

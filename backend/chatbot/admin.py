@@ -15,13 +15,18 @@ class ChatSessionAdmin(admin.ModelAdmin):
 
 @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
-    list_display = ['session', 'sender', 'message_preview', 'created_at']
+    list_display = ['session', 'sender', 'message_preview', 'has_audio', 'created_at']
     list_filter = ['sender', 'created_at']
     search_fields = ['message']
     
     def message_preview(self, obj):
         return obj.message[:100] + '...' if len(obj.message) > 100 else obj.message
     message_preview.short_description = 'Message'
+
+    def has_audio(self, obj):
+        return bool(obj.audio_url)
+    has_audio.boolean = True
+    has_audio.short_description = 'Voice'
 
 
 @admin.register(VideoIndex)

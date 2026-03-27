@@ -1,9 +1,11 @@
 """
-Video models for AI Video Summarizer
+Video models for VideoIQ AI Video Intelligence System
 """
 
 import os
 import uuid
+import shutil
+from pathlib import Path
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -32,9 +34,16 @@ class Video(models.Model):
     
     PROCESSING_STATUS = [
         ('pending', 'Pending'),
+        ('uploaded', 'Uploaded'),
         ('processing', 'Processing'),
+        ('extracting_audio', 'Extracting Audio'),
         ('transcribing', 'Transcribing'),
+        ('cleaning_transcript', 'Cleaning Transcript'),
+        ('transcript_ready', 'Transcript Ready'),
+        ('summarizing_quick', 'Summarizing Quick'),
+        ('summarizing_final', 'Summarizing Final'),
         ('summarizing', 'Summarizing'),
+        ('indexing_chat', 'Indexing Chat'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
     ]
@@ -42,7 +51,8 @@ class Video(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default='')
-    original_file = models.FileField(upload_to=video_upload_path, max_length=500)
+    original_file = models.FileField(upload_to=video_upload_path, max_length=500, null=True, blank=True)
+    youtube_url = models.URLField(max_length=500, blank=True, null=True)
     duration = models.FloatField(null=True, blank=True, help_text='Duration in seconds')
     file_size = models.BigIntegerField(default=0, help_text='File size in bytes')
     file_format = models.CharField(max_length=10, blank=True)
@@ -69,7 +79,9 @@ class Video(models.Model):
     
     @property
     def filename(self):
-        return os.path.basename(self.original_file.name)
+        if self.original_file:
+            return os.path.basename(self.original_file.name)
+        return ''
     
     def delete(self, *args, **kwargs):
         """Delete files when model is deleted."""
@@ -79,6 +91,18 @@ class Video(models.Model):
                 self.original_file.delete(save=False)
             except Exception:
                 pass
+        try:
+            from chatbot.models import ChatSession, VideoIndex
+            ChatSession.objects.filter(video_id=self.id).delete()
+            VideoIndex.objects.filter(video_id=self.id).delete()
+        except Exception:
+            pass
+        try:
+            index_dir = Path(settings.BASE_DIR) / 'vector_indices' / str(self.id)
+            if index_dir.exists():
+                shutil.rmtree(index_dir, ignore_errors=True)
+        except Exception:
+            pass
         super().delete(*args, **kwargs)
 
 
@@ -87,7 +111,17 @@ class Transcript(models.Model):
     
     video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='transcripts')
     language = models.CharField(max_length=10, default='en')
+    transcript_language = models.CharField(max_length=16, default='en', db_index=True)
+    canonical_language = models.CharField(max_length=16, default='en', db_index=True)
+    script_type = models.CharField(max_length=32, blank=True, default='')
+    asr_engine = models.CharField(max_length=64, blank=True, default='faster_whisper')
+    asr_engine_used = models.CharField(max_length=64, blank=True, default='faster_whisper')
+    detection_confidence = models.FloatField(default=0.0)
+    transcript_quality_score = models.FloatField(default=0.0)
     full_text = models.TextField()
+    transcript_original_text = models.TextField(blank=True, default='')
+    transcript_canonical_text = models.TextField(blank=True, default='')
+    transcript_canonical_en_text = models.TextField(blank=True, default='')
     json_data = models.JSONField(help_text='Detailed transcript with timestamps')
     
     # Word-level timestamps for precise video clipping
@@ -121,6 +155,9 @@ class Summary(models.Model):
     title = models.CharField(max_length=255, blank=True, default='')
     content = models.TextField()
     key_topics = models.JSONField(blank=True, null=True, help_text='List of key topics')
+    summary_language = models.CharField(max_length=16, default='en', db_index=True)
+    summary_source_language = models.CharField(max_length=16, default='en', db_index=True)
+    translation_used = models.BooleanField(default=False)
     
     # AI model metadata
     model_used = models.CharField(max_length=100, default='facebook/bart-large-cnn')

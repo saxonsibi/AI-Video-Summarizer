@@ -13,6 +13,19 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.app-main-default {
+  padding: 2rem;
+}
+
+.app-main-panel {
+  padding: 0.75rem;
+}
+
+.panel-shell {
+  max-width: 430px;
+  margin: 0 auto;
+}
+
 /* Animated gradient background */
 body {
   margin: 0;
@@ -20,6 +33,34 @@ body {
   background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e);
   background-size: 400% 400%;
   animation: gradientBG 15s ease infinite;
+}
+
+body.panel-mode {
+  animation: none;
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+}
+
+body.panel-mode::before {
+  opacity: 0.35;
+  animation: none;
+}
+
+body.panel-mode .container {
+  max-width: 100%;
+}
+
+.header-compact .gradient-text {
+  font-size: 1rem;
+}
+
+.panel-home .video-grid-item:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+
+.panel-detail .tab-button {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  font-size: 0.75rem;
 }
 
 @keyframes gradientBG {
@@ -113,6 +154,43 @@ body::before {
 @keyframes pulseGlow {
   0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
   50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6), 0 0 60px rgba(217, 70, 239, 0.4); }
+}
+
+/* Focus states for accessibility */
+*:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(139, 92, 246, 0.4);
+  color: white;
 }
 
 /* Upload zone with drag over effect */
@@ -301,6 +379,159 @@ body::before {
   box-shadow: 0 0 40px rgba(139, 92, 246, 0.1);
 }
 
+.summary-dashboard-card {
+  @apply p-6 md:p-7 h-full rounded-2xl border border-white/10;
+  background: rgba(255, 255, 255, 0.0125);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.summary-dashboard-icon {
+  @apply flex items-center justify-center w-11 h-11 rounded-2xl border;
+}
+
+.summary-dashboard-icon-brain {
+  @apply text-sky-200 border-sky-300/20;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(99, 102, 241, 0.18));
+}
+
+.summary-dashboard-icon-star {
+  @apply text-amber-200 border-amber-300/20;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(249, 115, 22, 0.16));
+}
+
+.summary-dashboard-icon-check {
+  @apply text-emerald-200 border-emerald-300/20;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(34, 197, 94, 0.14));
+}
+
+.summary-dashboard-icon-film {
+  @apply text-fuchsia-200 border-fuchsia-300/20;
+  background: linear-gradient(135deg, rgba(217, 70, 239, 0.16), rgba(168, 85, 247, 0.2));
+}
+
+.summary-dashboard-title {
+  @apply text-xl md:text-2xl font-semibold text-white tracking-tight;
+}
+
+.summary-dashboard-content {
+  @apply min-h-[8rem];
+}
+
+.summary-dashboard-text {
+  @apply text-sm md:text-[15px] leading-7 text-white/80;
+}
+
+.summary-dashboard-tldr {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.summary-dashboard-empty {
+  @apply text-sm text-white/45 italic;
+}
+
+.summary-dashboard-bullet {
+  @apply flex items-start gap-3;
+}
+
+.summary-dashboard-bullet-dot {
+  @apply mt-2 w-2.5 h-2.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)] flex-shrink-0;
+}
+
+.summary-dashboard-check-row {
+  @apply flex items-start gap-3;
+}
+
+.summary-dashboard-checkbox {
+  @apply mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-emerald-200 border border-emerald-300/20;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(34, 197, 94, 0.12));
+}
+
+.summary-dashboard-chapter {
+  @apply w-full text-left p-3 rounded-2xl border border-white/10 transition-all duration-300;
+  background: rgba(255, 255, 255, 0.0125);
+}
+
+.summary-dashboard-chapter:hover {
+  box-shadow: 0 0 20px rgba(217, 70, 239, 0.16);
+  transform: translateY(-1px);
+}
+
+.detail-workspace-panel {
+  @apply rounded-2xl border border-white/10;
+  background: rgba(255, 255, 255, 0.0125);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.chatbot-shell {
+  @apply rounded-2xl border border-white/10;
+  background: rgba(255, 255, 255, 0.0125);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.chatbot-shell-header {
+  @apply border-b border-white/10;
+  background: rgba(255, 255, 255, 0.008);
+}
+
+.chatbot-shell-select {
+  @apply border border-white/10;
+  background: rgba(255, 255, 255, 0.0125);
+}
+
+.chatbot-shell-action {
+  @apply text-indigo-300;
+  background: rgba(79, 70, 229, 0.18);
+}
+
+.chatbot-shell-action:hover {
+  background: rgba(79, 70, 229, 0.26);
+}
+
+.chatbot-shell-messages {
+  background: rgba(255, 255, 255, 0.005);
+}
+
+.chatbot-shell-footer {
+  @apply border-t border-white/10;
+  background: rgba(255, 255, 255, 0.008);
+}
+
+.chatbot-shell-input {
+  @apply w-full px-4 py-3 rounded-xl text-white placeholder-white/40 border border-white/10;
+  background: rgba(255, 255, 255, 0.0125);
+  transition: all 0.3s ease;
+}
+
+.chatbot-shell-input:focus {
+  @apply outline-none border-indigo-400/50;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.18);
+}
+
+.summary-dashboard-chapter-line {
+  @apply flex items-start gap-2 text-left;
+}
+
+.summary-dashboard-timestamp {
+  @apply inline-block text-xs md:text-sm font-mono text-fuchsia-300 flex-shrink-0;
+}
+
+.summary-dashboard-chapter-separator {
+  @apply text-fuchsia-200/80 flex-shrink-0;
+}
+
+.summary-dashboard-chapter-title {
+  @apply text-sm md:text-[15px] leading-6 text-white/85;
+}
+
 /* Delete button with hover effect */
 .delete-button {
   @apply p-2 rounded-lg transition-all duration-300 text-white/40 hover:text-red-400 hover:bg-red-500/10;
@@ -354,6 +585,58 @@ body::before {
 
 .source-item {
   @apply text-xs px-3 py-2 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors;
+}
+
+.chat-answer-layout {
+  @apply space-y-4;
+}
+
+.chat-answer-section-header {
+  @apply text-sm font-semibold text-white tracking-wide;
+}
+
+.chat-answer-divider {
+  @apply h-px bg-white/10;
+}
+
+.chat-answer-text {
+  @apply text-sm leading-7 text-white/85 whitespace-pre-wrap;
+}
+
+.chat-keypoints-block {
+  @apply space-y-2;
+}
+
+.chat-keypoints-title {
+  @apply text-xs uppercase tracking-[0.18em] text-white/45;
+}
+
+.chat-keypoints-list {
+  @apply space-y-2;
+}
+
+.chat-keypoint-item {
+  @apply flex items-start gap-2 text-sm text-white/75;
+}
+
+.chat-keypoint-bullet {
+  @apply text-indigo-300 mt-0.5;
+}
+
+.chat-sources-title {
+  @apply text-xs uppercase tracking-[0.18em] text-white/45 mb-2;
+}
+
+.source-item-card {
+  @apply p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10;
+}
+
+.source-item-time {
+  @apply block text-xs font-mono text-indigo-300 mb-1;
+}
+
+.source-item-preview {
+  @apply block text-sm leading-6 text-white/70;
 }
 
 /* Short video generation settings */

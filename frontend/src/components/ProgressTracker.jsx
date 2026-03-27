@@ -1,24 +1,49 @@
 import { motion } from 'framer-motion'
-import { CheckCircleIcon, XCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 function ProgressTracker({ video }) {
   const statusColors = {
     pending: 'bg-slate-500',
+    uploaded: 'bg-slate-500',
     processing: 'bg-amber-500',
+    extracting_audio: 'bg-amber-500',
     transcribing: 'bg-blue-500',
+    cleaning_transcript: 'bg-cyan-500',
+    transcript_ready: 'bg-cyan-500',
+    summarizing_quick: 'bg-purple-500',
+    summarizing_final: 'bg-purple-500',
     summarizing: 'bg-purple-500',
+    indexing_chat: 'bg-fuchsia-500',
     completed: 'bg-emerald-500',
-    failed: 'bg-red-500'
+    failed: 'bg-red-500',
   }
 
   const statusLabels = {
     pending: 'Pending',
+    uploaded: 'Uploaded',
     processing: 'Processing',
+    extracting_audio: 'Extracting Audio',
     transcribing: 'Transcribing',
+    cleaning_transcript: 'Cleaning Transcript',
+    transcript_ready: 'Transcript Ready',
+    summarizing_quick: 'Quick Summary',
+    summarizing_final: 'Final Summary',
     summarizing: 'Summarizing',
+    indexing_chat: 'Preparing Chat',
     completed: 'Completed',
-    failed: 'Failed'
+    failed: 'Failed',
   }
+
+  const hasTranscript = Array.isArray(video?.transcripts) && video.transcripts.length > 0
+  const hasSummaries = Array.isArray(video?.summaries) && video.summaries.length > 0
+
+  const steps = [
+    { key: 'uploading', label: 'Uploading Video', icon: '1' },
+    { key: 'extracting', label: 'Extracting Audio', icon: '2' },
+    { key: 'transcript', label: 'Generating Transcript', icon: '3' },
+    { key: 'summary', label: 'Creating Summary', icon: '4' },
+    { key: 'index', label: 'Building Chatbot Index', icon: '5' },
+  ]
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -31,31 +56,42 @@ function ProgressTracker({ video }) {
     }
   }
 
+  const getStepStatus = (stepKey) => {
+    if (video.status === 'failed') return 'pending'
+    if (video.status === 'completed') return 'completed'
+
+    if (stepKey === 'uploading') return 'completed'
+
+    if (stepKey === 'extracting') {
+      if (['uploaded', 'processing', 'extracting_audio'].includes(video.status) && !hasTranscript) return 'active'
+      return hasTranscript || ['transcribing', 'cleaning_transcript', 'transcript_ready', 'summarizing_quick', 'summarizing_final', 'indexing_chat'].includes(video.status) ? 'completed' : 'pending'
+    }
+
+    if (stepKey === 'transcript') {
+      if (['transcribing', 'cleaning_transcript'].includes(video.status)) return 'active'
+      return hasTranscript || ['transcript_ready', 'summarizing_quick', 'summarizing_final', 'indexing_chat'].includes(video.status) ? 'completed' : 'pending'
+    }
+
+    if (stepKey === 'summary') {
+      if (['summarizing_quick', 'summarizing_final', 'summarizing'].includes(video.status) && !hasSummaries) return 'active'
+      return hasSummaries || ['indexing_chat', 'completed'].includes(video.status) ? 'completed' : 'pending'
+    }
+
+    if (stepKey === 'index') {
+      if (video.status === 'indexing_chat') return 'active'
+      return video.status === 'completed' ? 'completed' : 'pending'
+    }
+
+    return 'pending'
+  }
+
   const formatDate = (dateString) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleString()
   }
 
-  const steps = [
-    { key: 'upload', label: 'Upload Complete', icon: '📤' },
-    { key: 'transcribe', label: 'Transcribing Speech', icon: '🎙️' },
-    { key: 'summarize', label: 'Generating Summaries', icon: '📝' },
-    { key: 'complete', label: 'Ready to Use', icon: '✨' }
-  ]
-
-  const getStepStatus = (stepKey) => {
-    if (video.status === 'completed') return 'completed'
-    if (video.status === 'pending') return stepKey === 'upload' ? 'active' : 'pending'
-    if (stepKey === 'upload') return 'completed'
-    if (stepKey === 'transcribe' && video.status === 'transcribing') return 'active'
-    if (stepKey === 'summarize' && video.status === 'summarizing') return 'active'
-    if (stepKey === 'complete' && video.status === 'completed') return 'completed'
-    if (['transcribing', 'summarizing', 'processing'].includes(video.status)) return 'pending'
-    return 'pending'
-  }
-
   return (
-    <motion.div 
+    <motion.div
       className="glass-card p-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -64,70 +100,81 @@ function ProgressTracker({ video }) {
         <h3 className="text-lg font-semibold text-white">Processing Status</h3>
         <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${statusColors[video.status]} bg-opacity-20`}>
           {getStatusIcon(video.status)}
-          <span className={`text-sm font-medium ${
-            video.status === 'completed' ? 'text-emerald-400' :
-            video.status === 'failed' ? 'text-red-400' :
-            video.status === 'pending' ? 'text-slate-400' :
-            'text-amber-400'
-          }`}>
+          <span
+            className={`text-sm font-medium ${
+              video.status === 'completed'
+                ? 'text-emerald-400'
+                : video.status === 'failed'
+                  ? 'text-red-400'
+                  : video.status === 'pending'
+                    ? 'text-slate-400'
+                    : 'text-amber-400'
+            }`}
+          >
             {statusLabels[video.status]}
           </span>
         </div>
       </div>
 
-      {/* Progress bar */}
       {video.status !== 'completed' && video.status !== 'failed' && (
         <div className="mb-6">
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-white/50">Progress</span>
-            <span className="text-white/70">{video.processing_progress}%</span>
+            <span className="text-white/70">{video.processing_progress ?? 0}%</span>
           </div>
           <div className="progress-bar">
-            <motion.div 
+            <motion.div
               className="progress-bar-fill"
               initial={{ width: 0 }}
-              animate={{ width: `${video.processing_progress}%` }}
+              animate={{ width: `${video.processing_progress ?? 0}%` }}
               transition={{ duration: 0.5 }}
             />
           </div>
         </div>
       )}
 
-      {/* Status steps */}
       <div className="space-y-3">
         {steps.map((step, index) => {
-          const status = getStepStatus(step.key)
+          const stepStatus = getStepStatus(step.key)
           return (
             <motion.div
               key={step.key}
               className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 ${
-                status === 'active' ? 'bg-indigo-500/10 border border-indigo-500/30' :
-                status === 'completed' ? 'bg-emerald-500/5' :
-                'bg-white/5'
+                stepStatus === 'active'
+                  ? 'bg-indigo-500/10 border border-indigo-500/30'
+                  : stepStatus === 'completed'
+                    ? 'bg-emerald-500/5'
+                    : 'bg-white/5'
               }`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.08 }}
             >
-              <div className={`${
-                status === 'completed' ? 'text-emerald-400' :
-                status === 'active' ? 'text-indigo-400' :
-                'text-white/30'
-              }`}>
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                  stepStatus === 'completed'
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : stepStatus === 'active'
+                      ? 'bg-indigo-500/20 text-indigo-300'
+                      : 'bg-white/10 text-white/40'
+                }`}
+              >
                 {step.icon}
               </div>
-              <span className={`flex-1 ${
-                status === 'completed' ? 'text-white/70' :
-                status === 'active' ? 'text-white' :
-                'text-white/30'
-              }`}>
+              <span
+                className={`flex-1 ${
+                  stepStatus === 'completed'
+                    ? 'text-white/70'
+                    : stepStatus === 'active'
+                      ? 'text-white'
+                      : 'text-white/30'
+                }`}
+              >
                 {step.label}
               </span>
-              {status === 'completed' && (
-                <CheckCircleIcon className="w-5 h-5 text-emerald-400" />
-              )}
-              {status === 'active' && (
-                <motion.div 
+              {stepStatus === 'completed' && <CheckCircleIcon className="w-5 h-5 text-emerald-400" />}
+              {stepStatus === 'active' && (
+                <motion.div
                   className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
@@ -138,7 +185,6 @@ function ProgressTracker({ video }) {
         })}
       </div>
 
-      {/* Error message */}
       {video.error_message && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -149,7 +195,6 @@ function ProgressTracker({ video }) {
         </motion.div>
       )}
 
-      {/* Timestamps */}
       <div className="mt-6 pt-4 border-t border-white/10 grid grid-cols-2 gap-4 text-sm">
         <div>
           <p className="text-white/40 mb-1">Created</p>

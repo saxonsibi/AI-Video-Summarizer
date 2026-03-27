@@ -4,6 +4,7 @@ API Views for video processing - Synchronous version (no Celery)
 
 import os
 import logging
+import threading
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status, views
@@ -17,12 +18,15 @@ from .serializers import (
     VideoSerializer, VideoUploadSerializer, VideoDetailSerializer,
     TranscriptSerializer, SummarySerializer, SummaryGenerateSerializer,
     HighlightSegmentSerializer, ShortVideoSerializer, ShortVideoGenerateSerializer,
-    ProcessingTaskSerializer
+    ProcessingTaskSerializer, get_or_build_structured_summary
 )
 from .utils import (
-    extract_audio, transcribe_video, summarize_text, 
-    detect_highlights, create_short_video, get_video_duration
+    extract_audio, transcribe_video, summarize_text,
+    detect_highlights, create_short_video, get_video_duration,
+    normalize_language_code
 )
+from .summary_schema import default_structured_summary
+from .processing_metadata import build_processing_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -44,77 +48,102 @@ class TranscriptViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-def process_video_sync(video_id):
-    """Process video synchronously - transcription + summarization + highlights"""
-    try:
-        video = Video.objects.get(id=video_id)
-        
-        # Update status
-        video.status = 'processing'
-        video.processing_progress = 10
-        video.save(update_fields=['status', 'processing_progress', 'updated_at'])
-        
-        # Step 1: Extract audio
-        audio_path = extract_audio(video.original_file.path)
-        video.processing_progress = 30
-        video.save(update_fields=['processing_progress', 'updated_at'])
-        
-        # Step 2: Transcribe
-        transcript_data = transcribe_video(audio_path)
-        
-        # Save transcript
-        Transcript.objects.create(
-            video=video,
-            language=transcript_data.get('language', 'en'),
-            full_text=transcript_data.get('text', ''),
-            json_data=transcript_data,
-            word_timestamps=transcript_data.get('word_timestamps', [])
-        )
-        
-        video.processing_progress = 70
-        video.save(update_fields=['processing_progress', 'updated_at'])
-        
-        # Step 3: Generate summary
-        summary_text = summarize_text(transcript_data.get('text', ''))
-        Summary.objects.create(
-            video=video,
-            summary_type='full',
-            title='Full Summary',
-            content=summary_text
-        )
-        
-        # Step 4: Try to detect highlights (may fail for short videos)
-        try:
-            transcript_obj = video.transcripts.first()
-            if transcript_obj:
-                highlights = detect_highlights(transcript_obj)
-                for highlight in highlights:
-                    HighlightSegment.objects.create(
-                        video=video,
-                        start_time=highlight.get('start', 0),
-                        end_time=highlight.get('end', 0),
-                        importance_score=highlight.get('score', 0.5),
-                        transcript_snippet=highlight.get('text', '')
-                    )
-        except Exception as e:
-            logger.warning(f"Highlight detection failed: {str(e)}")
-        
-        # Complete
-        video.status = 'completed'
-        video.processing_progress = 100
-        video.save(update_fields=['status', 'processing_progress', 'updated_at'])
-        
-        logger.info(f"Video processing completed for {video_id}")
-        
-    except Exception as e:
-        logger.error(f"Video processing failed: {str(e)}")
-        try:
-            video = Video.objects.get(id=video_id)
-            video.status = 'failed'
-            video.error_message = str(e)
-            video.save(update_fields=['status', 'error_message', 'updated_at'])
-        except:
-            pass
+def process_video_sync(
+    video_id,
+    transcription_language: str = 'auto',
+    output_language: str = 'auto',
+    summary_language_mode: str = 'same_as_transcript'
+):
+    """Delegate to shared sync pipeline used by manual uploads."""
+    from videos.tasks import process_video_transcription_sync
+    process_video_transcription_sync(
+        video_id,
+        transcription_language=transcription_language,
+        output_language=output_language,
+        summary_language_mode=summary_language_mode
+    )
+
+
+def _launch_manual_processing(
+    video_id: str,
+    transcription_language: str = 'auto',
+    output_language: str = 'auto',
+    summary_language_mode: str = 'same_as_transcript'
+):
+    """Run manual upload processing according to DEV_SYNC_MODE toggle."""
+    if getattr(settings, 'DEV_SYNC_MODE', False):
+        # Run in background thread so video appears as queued first
+        def _run_manual_processing(v_id, t_lang, o_lang, s_mode):
+            from django.db import close_old_connections
+            from videos.tasks import process_video_transcription_sync
+            close_old_connections()
+            try:
+                process_video_transcription_sync(
+                    v_id,
+                    transcription_language=t_lang,
+                    output_language=o_lang,
+                    summary_language_mode=s_mode
+                )
+            except Exception:
+                logger.exception(f"DEV_SYNC_MODE manual processing failed for video {v_id}")
+            finally:
+                close_old_connections()
+
+        threading.Thread(
+            target=_run_manual_processing,
+            args=(video_id, transcription_language, output_language, summary_language_mode),
+            daemon=True
+        ).start()
+        return
+
+    from videos.tasks import process_video_transcription
+    process_video_transcription.delay(
+        video_id,
+        transcription_language=transcription_language,
+        output_language=output_language,
+        summary_language_mode=summary_language_mode
+    )
+
+
+def _launch_youtube_processing(
+    video_id: str,
+    transcription_language: str = 'auto',
+    output_language: str = 'auto',
+    summary_language_mode: str = 'same_as_transcript'
+):
+    """Run YouTube processing according to DEV_SYNC_MODE toggle."""
+    if getattr(settings, 'DEV_SYNC_MODE', False):
+        # Run in background thread so video appears as queued first
+        def _run_youtube_processing(v_id, t_lang, o_lang, s_mode):
+            from django.db import close_old_connections
+            from videos.tasks import process_youtube_video_sync
+            close_old_connections()
+            try:
+                process_youtube_video_sync(
+                    v_id,
+                    transcription_language=t_lang,
+                    output_language=o_lang,
+                    summary_language_mode=s_mode
+                )
+            except Exception:
+                logger.exception(f"DEV_SYNC_MODE YouTube processing failed for video {v_id}")
+            finally:
+                close_old_connections()
+
+        threading.Thread(
+            target=_run_youtube_processing,
+            args=(video_id, transcription_language, output_language, summary_language_mode),
+            daemon=True
+        ).start()
+        return
+
+    from videos.tasks import process_youtube_video
+    process_youtube_video.delay(
+        video_id,
+        transcription_language=transcription_language,
+        output_language=output_language,
+        summary_language_mode=summary_language_mode
+    )
 
 
 class VideoUploadView(views.APIView):
@@ -131,6 +160,20 @@ class VideoUploadView(views.APIView):
             video_file = serializer.validated_data['file']
             title = serializer.validated_data.get('title', video_file.name)
             description = serializer.validated_data.get('description', '')
+            transcription_language = normalize_language_code(
+                serializer.validated_data.get('transcription_language'),
+                default='auto',
+                allow_auto=True
+            )
+            output_language = normalize_language_code(
+                serializer.validated_data.get('output_language'),
+                default='auto',
+                allow_auto=True
+            )
+            summary_language_mode = (
+                str(request.data.get('summary_language_mode', 'same_as_transcript')).strip().lower()
+                or 'same_as_transcript'
+            )
             
             # Create video instance
             video = Video.objects.create(
@@ -139,14 +182,15 @@ class VideoUploadView(views.APIView):
                 original_file=video_file,
                 file_size=video_file.size,
                 file_format=os.path.splitext(video_file.name)[1].lower()[1:],
-                status='pending'
+                status='uploaded'
             )
             
-            # Process synchronously
-            try:
-                process_video_sync(str(video.id))
-            except Exception as e:
-                logger.warning(f"Processing failed: {str(e)}")
+            _launch_manual_processing(
+                str(video.id),
+                transcription_language=transcription_language,
+                output_language=output_language,
+                summary_language_mode=summary_language_mode
+            )
             
             response_serializer = VideoSerializer(video)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -155,6 +199,84 @@ class VideoUploadView(views.APIView):
             logger.error(f"Video upload failed: {str(e)}")
             return Response(
                 {'error': 'Video upload failed', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class YouTubeURLUploadView(views.APIView):
+    """Handle YouTube URL uploads."""
+    parser_classes = [JSONParser]
+    
+    def post(self, request):
+        """Upload a YouTube video for processing."""
+        url = request.data.get('url')
+        title = request.data.get('title', '')
+        transcription_language = normalize_language_code(
+            request.data.get('transcription_language'),
+            default='auto',
+            allow_auto=True
+        )
+        output_language = normalize_language_code(
+            request.data.get('output_language'),
+            default='auto',
+            allow_auto=True
+        )
+        summary_language_mode = (
+            str(request.data.get('summary_language_mode', 'same_as_transcript')).strip().lower()
+            or 'same_as_transcript'
+        )
+        
+        if not url:
+            return Response(
+                {'error': 'YouTube URL is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate YouTube URL
+        youtube_patterns = [
+            r'(?:https?://)?(?:www\.|m\.)?youtube\.com/watch\?v=[\w-]+',
+            r'(?:https?://)?(?:www\.)?youtu\.be/[\w-]+',
+            r'(?:https?://)?(?:www\.|m\.)?youtube\.com/shorts/[\w-]+',
+            r'(?:https?://)?(?:www\.|m\.)?youtube\.com/embed/[\w-]+',
+            r'(?:https?://)?(?:www\.|m\.)?youtube\.com/v/[\w-]+',
+        ]
+        
+        import re
+        is_valid = any(re.match(pattern, url) for pattern in youtube_patterns)
+        
+        if not is_valid:
+            return Response(
+                {'error': 'Invalid YouTube URL format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Use provided title or default
+            if not title:
+                title = 'YouTube Video'
+            
+            # Create video instance with YouTube URL
+            video = Video.objects.create(
+                title=title,
+                description=f'YouTube URL: {url}',
+                youtube_url=url,
+                status='uploaded'
+            )
+            
+            _launch_youtube_processing(
+                str(video.id),
+                transcription_language=transcription_language,
+                output_language=output_language,
+                summary_language_mode=summary_language_mode
+            )
+
+            response_serializer = VideoSerializer(video)
+            return Response(response_serializer.data, status=status.HTTP_202_ACCEPTED)
+            
+        except Exception as e:
+            logger.error(f"YouTube URL upload failed: {str(e)}")
+            return Response(
+                {'error': 'YouTube URL processing failed', 'detail': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -231,7 +353,18 @@ class VideoViewSet(viewsets.ModelViewSet):
         """Generate transcript for a video."""
         video = self.get_object()
         
-        if video.status in ['processing', 'transcribing']:
+        in_progress_statuses = {
+            'processing',
+            'extracting_audio',
+            'transcribing',
+            'cleaning_transcript',
+            'transcript_ready',
+            'summarizing_quick',
+            'summarizing_final',
+            'summarizing',
+            'indexing_chat',
+        }
+        if video.status in in_progress_statuses:
             return Response(
                 {'error': 'Video is already being processed'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -239,7 +372,46 @@ class VideoViewSet(viewsets.ModelViewSet):
         
         # Process synchronously
         try:
-            process_video_sync(str(video.id))
+            raw_t_lang = request.data.get('transcription_language')
+            default_t_lang = 'auto' if video.youtube_url else 'en'
+            transcription_language = normalize_language_code(
+                raw_t_lang,
+                default=default_t_lang,
+                allow_auto=True
+            )
+            output_language = normalize_language_code(
+                request.data.get('output_language'),
+                default='auto',
+                allow_auto=True
+            )
+            summary_language_mode = (
+                str(request.data.get('summary_language_mode', 'same_as_transcript')).strip().lower()
+                or 'same_as_transcript'
+            )
+            # English View: Request translation to English
+            english_view = request.data.get('english_view', False)
+            if video.original_file:
+                process_video_sync(
+                    str(video.id),
+                    transcription_language=transcription_language,
+                    output_language=output_language,
+                    summary_language_mode=summary_language_mode,
+                    english_view=english_view
+                )
+            elif video.youtube_url:
+                from videos.tasks import process_youtube_video_sync
+                process_youtube_video_sync(
+                    str(video.id),
+                    transcription_language=transcription_language,
+                    output_language=output_language,
+                    summary_language_mode=summary_language_mode,
+                    english_view=english_view
+                )
+            else:
+                return Response(
+                    {'error': 'No valid video source found for transcript generation.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             video.refresh_from_db()
         except Exception as e:
             return Response(
@@ -257,6 +429,21 @@ class VideoViewSet(viewsets.ModelViewSet):
         summaries = video.summaries.all()
         serializer = SummarySerializer(summaries, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def structured_summary(self, request, pk=None):
+        """Get bounded structured summary object without changing existing summary APIs."""
+        video = self.get_object()
+        transcript = video.transcripts.order_by('-created_at').first()
+        if not transcript:
+            return Response({
+                **default_structured_summary(),
+                "processing_metadata": build_processing_metadata(video, None),
+            })
+
+        payload = get_or_build_structured_summary(video, transcript)
+        payload["processing_metadata"] = build_processing_metadata(video, transcript)
+        return Response(payload)
     
     @action(detail=True, methods=['post'])
     def generate_summary(self, request, pk=None):
@@ -270,6 +457,12 @@ class VideoViewSet(viewsets.ModelViewSet):
         summary_type = serializer.validated_data.get('summary_type', 'full')
         max_length = serializer.validated_data.get('max_length')
         min_length = serializer.validated_data.get('min_length')
+        summary_language_mode = serializer.validated_data.get('summary_language_mode', 'same_as_transcript')
+        output_language = normalize_language_code(
+            serializer.validated_data.get('output_language'),
+            default='auto',
+            allow_auto=True
+        )
         
         # Delete existing summary and regenerate
         video.summaries.filter(summary_type=summary_type).delete()
@@ -283,13 +476,27 @@ class VideoViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            summary_text = summarize_text(transcript.full_text, summary_type=summary_type, max_length=max_length, min_length=min_length)
+            summary_text = summarize_text(
+                transcript.transcript_original_text or transcript.full_text,
+                summary_type=summary_type,
+                max_length=max_length,
+                min_length=min_length,
+                output_language=output_language,
+                source_language=transcript.transcript_language or transcript.language,
+                canonical_text=transcript.transcript_canonical_text or '',
+                canonical_language=transcript.canonical_language or 'en',
+                summary_language_mode=summary_language_mode
+            )
             summary = Summary.objects.create(
                 video=video,
                 summary_type=summary_type,
                 title=summary_text.get('title', f'{summary_type.capitalize()} Summary'),
-                content=summary_text['content'],  # Save just the plain text
-                model_used=summary_text.get('model_used', 'facebook/bart-large-cnn'),
+                content=summary_text.get('content') or summary_text.get('summary', ''),
+                key_topics=summary_text.get('key_topics', []),
+                summary_language=summary_text.get('summary_language', 'en'),
+                summary_source_language=summary_text.get('summary_source_language', transcript.transcript_language or transcript.language or 'en'),
+                translation_used=bool(summary_text.get('translation_used', False)),
+                model_used=summary_text.get('model_used') or summary_text.get('model', 'facebook/bart-large-cnn'),
                 generation_time=summary_text.get('generation_time', 0)
             )
             
@@ -300,17 +507,23 @@ class VideoViewSet(viewsets.ModelViewSet):
                     for highlight in highlights:
                         HighlightSegment.objects.create(
                             video=video,
-                            start_time=highlight.get('start', 0),
-                            end_time=highlight.get('end', 0),
-                            importance_score=highlight.get('score', 0.5),
-                            transcript_snippet=highlight.get('text', '')
+                            start_time=highlight.get('start_time', highlight.get('start', 0)),
+                            end_time=highlight.get('end_time', highlight.get('end', 0)),
+                            importance_score=highlight.get('importance_score', highlight.get('score', 0.5)),
+                            reason=highlight.get('reason', ''),
+                            transcript_snippet=highlight.get('transcript_snippet', highlight.get('text', ''))
                         )
                     logger.info(f"Created {len(highlights)} highlight segments for video {video.id}")
                 except Exception as e:
                     logger.warning(f"Highlight detection failed: {str(e)}")
             
             serializer = SummarySerializer(summary)
-            return Response(serializer.data)
+            payload = dict(serializer.data)
+            payload['summary_en'] = summary_text.get('summary_en', payload.get('content', ''))
+            payload['summary_out'] = summary_text.get('summary_out', payload.get('content', ''))
+            payload['structured_summary'] = get_or_build_structured_summary(video, transcript)
+            payload['processing_metadata'] = build_processing_metadata(video, transcript)
+            return Response(payload)
             
         except Exception as e:
             return Response(
@@ -325,144 +538,6 @@ class VideoViewSet(viewsets.ModelViewSet):
         segments = video.highlight_segments.all()
         serializer = HighlightSegmentSerializer(segments, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['get'])
-    def shorts(self, request, pk=None):
-        """Get generated short videos for a video."""
-        video = self.get_object()
-        shorts = video.short_videos.all()
-        serializer = ShortVideoSerializer(shorts, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
-    def generate_short(self, request, pk=None):
-        """Generate a short video from a video."""
-        video = self.get_object()
-        logger.error(f"Generate short request data: {request.data}")
-        serializer = ShortVideoGenerateSerializer(data=request.data)
-        
-        if not serializer.is_valid():
-            logger.error(f"Short video serializer errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        logger.error(f"Serializer is valid, validated_data: {serializer.validated_data}")
-        
-        # Check if highlights exist, if not try to create from transcript
-        if not video.highlight_segments.exists():
-            # Try to create highlights from transcript
-            transcript = video.transcripts.first()
-            if transcript and (transcript.json_data or transcript.full_text):
-                # Create highlights from transcript segments
-                try:
-                    from videos.utils import fallback_highlight_detection
-                    highlights = fallback_highlight_detection(transcript)
-                    
-                    if not highlights:
-                        # If fallback also returns empty, create basic segments from video duration
-                        if video.duration:
-                            segment_duration = min(10, video.duration / 5)  # 5 segments of 10 seconds each
-                            for i in range(5):
-                                start = i * segment_duration
-                                end = min((i + 1) * segment_duration, video.duration)
-                                highlights.append({
-                                    'start_time': start,
-                                    'end_time': end,
-                                    'importance_score': 0.5,
-                                    'reason': 'Auto-generated segment',
-                                    'transcript_snippet': f'Segment {i+1}'
-                                })
-                    
-                    # Save highlights to database
-                    for hl in highlights:
-                        HighlightSegment.objects.create(
-                            video=video,
-                            start_time=hl['start_time'],
-                            end_time=hl['end_time'],
-                            transcript_snippet=hl.get('transcript_snippet', ''),
-                            importance_score=hl.get('importance_score', 0.5),
-                            reason=hl.get('reason', 'Auto-generated from transcript')
-                        )
-                    logger.info(f"Auto-generated {len(highlights)} highlight segments for video {video.id}")
-                except Exception as e:
-                    logger.error(f"Failed to auto-generate highlights: {e}")
-                    return Response(
-                        {'error': f'No highlights found and auto-generation failed: {str(e)}'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            elif not transcript:
-                logger.error(f"No highlight segments found for video {video.id}")
-                return Response(
-                    {'error': 'No highlights found. Please upload and process a video with transcript first.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            else:
-                logger.error(f"No highlight segments or transcript data for video {video.id}")
-                return Response(
-                    {'error': 'No highlights found and no transcript data available. Please process the video first.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        
-        # Generate short synchronously
-        try:
-            # Get highlight segments
-            segments = video.highlight_segments.all()
-            if not segments:
-                return Response(
-                    {'error': 'No highlights found. Transcript processing needed first.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Prepare segments data
-            max_duration = serializer.validated_data.get('max_duration', 60)
-            segments_data = []
-            total_duration = 0
-            
-            for seg in segments:
-                seg_duration = seg.end_time - seg.start_time
-                if total_duration + seg_duration <= max_duration:
-                    segments_data.append({
-                        'start_time': seg.start_time,
-                        'end_time': seg.end_time,
-                        'transcript_snippet': seg.transcript_snippet or ''
-                    })
-                    total_duration += seg_duration
-            
-            if not segments_data:
-                return Response(
-                    {'error': 'No segments fit within max_duration. Try increasing the duration.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Get video path
-            video_path = video.original_file.path
-            
-            # Create short video
-            short_video_path = create_short_video(
-                video_path,
-                segments_data,
-                style=serializer.validated_data.get('style', 'default'),
-                caption_style=serializer.validated_data.get('caption_style', 'default'),
-                font_size=24
-            )
-            
-            # Save short video
-            from django.core.files import File
-            with open(short_video_path, 'rb') as f:
-                short = ShortVideo.objects.create(
-                    video=video,
-                    file=File(f, name=f'short_{video.id}.mp4'),
-                    duration=sum(s['end_time'] - s['start_time'] for s in segments_data),
-                    style=serializer.validated_data.get('style', 'default'),
-                    include_music=serializer.validated_data.get('include_music', False)
-                )
-            
-            serializer = ShortVideoSerializer(short)
-            return Response(serializer.data)
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
     
     @action(detail=True, methods=['post'])
     def generate_audio_summary(self, request, pk=None):

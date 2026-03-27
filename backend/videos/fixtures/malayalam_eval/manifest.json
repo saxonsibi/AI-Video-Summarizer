@@ -1,0 +1,45 @@
+{
+  "version": "ml_eval_fixture_manifest_v1",
+  "fixtures": [
+    {
+      "case_id": "real_audio_ml_cleaned_grounded_01",
+      "label": "Malayalam Cleaned Grounded Sample",
+      "audio_file": "audio/ml_cleaned_grounded_01.wav",
+      "reference_file": "references/ml_cleaned_grounded_01.txt",
+      "tags": ["soft_spoken", "cleaned", "grounded"],
+      "notes": "Soft-spoken educational Malayalam with clean reference transcript."
+    },
+    {
+      "case_id": "real_audio_ml_degraded_useful_01",
+      "label": "Malayalam Continuous Speech Sample",
+      "audio_file": "audio/ml_degraded_useful_01.wav",
+      "reference_file": "references/ml_degraded_useful_01.txt",
+      "tags": ["continuous_speech", "longform", "ceiling_fallback"],
+      "notes": "Continuous Malayalam speech with limited silence boundaries."
+    },
+    {
+      "case_id": "real_audio_ml_mixed_edu_01",
+      "label": "Malayalam Mixed Educational Sample",
+      "audio_file": "audio/ml_mixed_edu_01.wav",
+      "reference_file": "references/ml_mixed_edu_01.txt",
+      "tags": ["code_switch", "education", "real_english_terms"],
+      "notes": "Malayalam educational clip with real spoken English terms."
+    },
+    {
+      "case_id": "real_audio_ml_volume_spike_01",
+      "label": "Malayalam Field Recording Sample",
+      "audio_file": "audio/ml_volume_spike_01.wav",
+      "reference_file": "references/ml_volume_spike_01.txt",
+      "tags": ["volume_spikes", "field_recording", "dynaudnorm_candidate"],
+      "notes": "Malayalam clip with volume swings to evaluate normalization impact."
+    },
+    {
+      "case_id": "real_audio_ml_noise_under_speech_01",
+      "label": "Malayalam Noise Under Speech Sample",
+      "audio_file": "audio/ml_noise_under_speech_01.wav",
+      "reference_file": "references/ml_noise_under_speech_01.txt",
+      "tags": ["background_noise", "music_under_speech", "filter_candidate"],
+      "notes": "Malayalam speech with background noise or music to evaluate speech-band filters."
+    }
+  ]
+}

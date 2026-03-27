@@ -5,6 +5,7 @@ node_modules/
 frontend/node_modules/
 dist/
 build/
+backend/frontend_dist/
 
 # ==============================
 # Environment
@@ -36,8 +37,24 @@ backend/logs/
 # ==============================
 backend/media/
 backend/vector_indices/
+backend/videos/debug_audio/
+backend/videos/eval_results/
 *.mp4
 *.mp3
+*.wav
+
+# ==============================
+# Local Temp / Backups / Reports
+# ==============================
+tmp_test/
+RESTORE_PREPROD_BACKUP/
+backend/benchmark_reports/
+STUDY_GUIDE_CURRENT_SYSTEM.md
+
+# ==============================
+# Editor
+# ==============================
+.vscode/
 
 # ==============================
 # OS

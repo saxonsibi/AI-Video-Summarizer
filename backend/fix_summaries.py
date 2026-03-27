@@ -1,6 +1,6 @@
 import os
 import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ai_video_summarizer.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'videoiq.settings')
 django.setup()
 
 from videos.models import Transcript, Summary, Video

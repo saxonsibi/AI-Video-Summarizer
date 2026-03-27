@@ -26,6 +26,11 @@ export const videoAPI = {
     })
   },
 
+  // Upload YouTube URL
+  uploadYouTubeURL: async (url, title = '', options = {}) => {
+    return api.post('/videos/youtube/', { url, title, ...options })
+  },
+
   // Get all videos
   getAll: async (params = {}) => {
     return api.get('/videos/', { params })
@@ -42,8 +47,8 @@ export const videoAPI = {
   },
 
   // Generate transcript
-  generateTranscript: async (id) => {
-    return api.post(`/videos/${id}/generate_transcript/`)
+  generateTranscript: async (id, data = {}) => {
+    return api.post(`/videos/${id}/generate_transcript/`, data)
   },
 
   // Get transcripts
@@ -112,6 +117,11 @@ export const chatbotAPI = {
   // Get session messages
   getSessionMessages: async (sessionId) => {
     return api.get(`/chatbot/sessions/${sessionId}/messages/`)
+  },
+
+  // Rebuild RAG index for a video
+  rebuildIndex: async (videoId) => {
+    return api.post('/chatbot/indices/build/', { video_id: videoId })
   },
 }
 

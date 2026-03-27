@@ -1,33 +1,112 @@
 import { Link } from 'react-router-dom'
-import { SparklesIcon, VideoCameraIcon } from '@heroicons/react/24/outline'
+import { VideoCameraIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 
-function Header() {
+// Custom AI Video Logo Component
+function AIVideoLogo() {
+  return (
+    <svg 
+      width="32" 
+      height="32" 
+      viewBox="0 0 32 32" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
+    >
+      {/* Outer soft glow */}
+      <rect
+        x="1.5"
+        y="1.5"
+        width="29"
+        height="29"
+        rx="9"
+        fill="url(#logoGradient)"
+        filter="url(#glow)"
+        opacity="0.55"
+      />
+
+      {/* Main rounded square */}
+      <rect 
+        x="3" 
+        y="3" 
+        width="26" 
+        height="26" 
+        rx="8" 
+        fill="url(#logoGradient)"
+      />
+
+      {/* Inner highlight */}
+      <rect
+        x="4"
+        y="4"
+        width="24"
+        height="24"
+        rx="7"
+        fill="url(#logoHighlight)"
+        opacity="0.35"
+      />
+
+      {/* Play triangle */}
+      <path 
+        d="M12.2 9.4L22.2 16L12.2 22.6V9.4Z" 
+        fill="white" 
+        stroke="white" 
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+
+      {/* AI sparkle dots */}
+      <circle cx="23.8" cy="8.2" r="1.3" fill="#f9a8d4" />
+      <circle cx="25.6" cy="10" r="0.9" fill="#c4b5fd" opacity="0.9" />
+      <circle cx="8.4" cy="23.6" r="0.9" fill="#f9a8d4" opacity="0.7" />
+      
+      {/* Gradient definitions */}
+      <defs>
+        <linearGradient id="logoGradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#7c3aed" />
+          <stop offset="0.5" stopColor="#a855f7" />
+          <stop offset="1" stopColor="#f472b6" />
+        </linearGradient>
+        <linearGradient id="logoHighlight" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ffffff" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        <filter id="glow" x="-4" y="-4" width="40" height="40">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
+  )
+}
+
+function Header({ compact = false }) {
   return (
     <motion.header 
-      className="header-glass"
+      className={`header-glass ${compact ? 'header-compact' : ''}`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 100 }}
     >
-      <div className="container mx-auto px-4 py-4">
+      <div className={`${compact ? 'px-3 py-3' : 'container mx-auto px-4 py-4'}`}>
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-3 group">
             <motion.div 
-              className="relative"
+              className={`relative ${compact ? 'w-8 h-8' : 'w-10 h-10'}`}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 blur-lg opacity-50 rounded-xl" />
-              <div className="relative p-2.5 glass-card rounded-xl">
-                <SparklesIcon className="w-6 h-6 gradient-text" />
-              </div>
+              <AIVideoLogo />
             </motion.div>
-            <span className="text-xl font-bold gradient-text group-hover:scale-105 transition-transform">
-              AI Video Summarizer
+            <span className={`${compact ? 'text-base' : 'text-xl'} font-bold gradient-text group-hover:scale-105 transition-transform`}>
+              VideoIQ
             </span>
           </Link>
           
+          {!compact && (
           <nav className="hidden md:flex items-center space-x-2">
             <Link 
               to="/" 
@@ -52,6 +131,7 @@ function Header() {
               </svg>
             </a>
           </nav>
+          )}
           
           <motion.div 
             className="flex items-center space-x-3"
@@ -60,11 +140,11 @@ function Header() {
             transition={{ delay: 0.3 }}
           >
             <Link 
-              to="/"
-              className="hidden sm:flex items-center space-x-2 px-4 py-2 glass-card hover:bg-white/10 transition-all duration-300"
+              to={compact ? '/?layout=panel' : '/'}
+              className={`${compact ? 'flex' : 'hidden sm:flex'} items-center space-x-2 px-3 py-2 glass-card hover:bg-white/10 transition-all duration-300`}
             >
               <VideoCameraIcon className="w-5 h-5 text-indigo-400" />
-              <span className="text-white/80">My Videos</span>
+              <span className="text-white/80">{compact ? 'Videos' : 'My Videos'}</span>
             </Link>
           </motion.div>
         </div>

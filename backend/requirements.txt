@@ -10,6 +10,8 @@ mysqlclient>=2.2.0
 opencv-python>=4.8.0
 moviepy>=2.0.0
 ffmpeg-python>=0.2.0
+numpy>=1.24.0
+yt-dlp>=2024.1.0
 
 # AI/ML
 faster-whisper>=1.0.0
@@ -21,6 +23,7 @@ langchain>=0.1.0
 langchain-community>=0.0.10
 langchain-openai>=0.0.5
 langchain-groq>=0.1.0
+groq>=0.4.0
 
 # NLP
 nltk>=3.8.1

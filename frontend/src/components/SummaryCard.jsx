@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DocumentTextIcon, ArrowPathIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { videoAPI } from '../services/api'
@@ -49,6 +49,30 @@ function SummaryCard({ video, summary, onUpdate }) {
   const getKeyTopics = () => {
     if (!parsedContent) return []
     return parsedContent.key_topics || []
+  }
+
+  const getBulletItems = () => {
+    const text = getContentText()
+    if (!text) return []
+
+    // Primary format: one bullet per line from backend ('- item')
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/^\uFFFD+\s*/g, '').trim())
+      .map((line) => line.replace(/^[\-\u2022\u25CF\u25AA\u25E6]+\s*/, '').trim())
+      .map((line) => line.replace(/^[^A-Za-z0-9(]+/, '').trim())
+      .filter(Boolean)
+
+    if (lines.length > 0) return lines
+
+    // Fallback: older summaries came as prose.
+    return text
+      .split('. ')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => (line.endsWith('.') ? line.slice(0, -1) : line))
   }
 
   return (
@@ -105,11 +129,10 @@ function SummaryCard({ video, summary, onUpdate }) {
           >
             <div className="pt-4 space-y-2">
               {summary.summary_type === 'bullet' ? (
-                <ul className="space-y-2">
-                  {getContentText().split('. ').filter(line => line.trim()).map((line, i) => (
-                    <li key={i} className="ml-4 text-white/70 flex items-start gap-2">
-                      <span className="text-indigo-400 mt-1">•</span>
-                      <span>{line.trim()}{line.trim().endsWith('.') ? '' : '.'}</span>
+                <ul className="space-y-2 list-disc ml-6">
+                  {getBulletItems().map((line, i) => (
+                    <li key={i} className="text-white/70">
+                      {line.trim()}{line.trim().endsWith('.') ? '' : '.'}
                     </li>
                   ))}
                 </ul>
@@ -120,7 +143,6 @@ function SummaryCard({ video, summary, onUpdate }) {
               )}
             </div>
 
-            {/* Key topics */}
             {getKeyTopics().length > 0 && (
               <div className="mt-4 pt-4 border-t border-white/10">
                 <p className="text-xs text-white/40 mb-2">Key Topics:</p>
