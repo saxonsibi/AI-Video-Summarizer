@@ -204,6 +204,12 @@ CELERY_TIMEZONE = 'UTC'
 # When True, videos are processed in background threads within Django runserver.
 # No separate Celery worker terminal needed!
 DEV_SYNC_MODE = os.environ.get('DEV_SYNC_MODE', 'False').lower() in ('true', '1', 'yes')
+DEV_SYNC_RECOVERY_ENABLED = os.environ.get(
+    'DEV_SYNC_RECOVERY_ENABLED',
+    'True' if DEV_SYNC_MODE else 'False'
+).lower() in ('true', '1', 'yes')
+DEV_SYNC_RECOVERY_MAX_AGE_SECONDS = int(os.environ.get('DEV_SYNC_RECOVERY_MAX_AGE_SECONDS', '45'))
+DEV_SYNC_RECOVERY_STARTUP_DELAY_SECONDS = int(os.environ.get('DEV_SYNC_RECOVERY_STARTUP_DELAY_SECONDS', '20'))
 
 # File Upload Settings
 DATA_UPLOAD_MAX_MEMORY_SIZE = 500 * 1024 * 1024  # 500MB
@@ -476,7 +482,10 @@ EMBEDDING_MODEL_FALLBACKS = os.environ.get(
     'EMBEDDING_MODEL_FALLBACKS',
     'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2,sentence-transformers/all-MiniLM-L6-v2'
 )
-RAG_PREWARM_EMBEDDING_MODEL = os.environ.get('RAG_PREWARM_EMBEDDING_MODEL', 'True').lower() in ('true', '1', 'yes')
+RAG_PREWARM_EMBEDDING_MODEL = os.environ.get(
+    'RAG_PREWARM_EMBEDDING_MODEL',
+    'True' if DEBUG else 'False'
+).lower() in ('true', '1', 'yes')
 EMBED_CANONICAL_LANGUAGE = os.environ.get('EMBED_CANONICAL_LANGUAGE', 'en')
 CANONICAL_TRANSLATE_SEGMENTS = os.environ.get('CANONICAL_TRANSLATE_SEGMENTS', 'False').lower() in ('true', '1', 'yes')
 CANONICAL_TRANSLATION_MODEL = os.environ.get('CANONICAL_TRANSLATION_MODEL', GROQ_SUMMARY_MODEL)

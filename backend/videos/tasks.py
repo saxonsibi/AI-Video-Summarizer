@@ -30,6 +30,17 @@ from .utils_metrics import evaluate_transcript_quality
 logger = logging.getLogger(__name__)
 transcribe_video = transcribe_video_router
 _VIDEO_PROCESSING_STARTABLE_STATUSES = {'pending', 'uploaded', 'failed'}
+_VIDEO_INTERRUPTED_STATUSES = {
+    'processing',
+    'extracting_audio',
+    'transcribing',
+    'cleaning_transcript',
+    'transcript_ready',
+    'summarizing_quick',
+    'summarizing_final',
+    'summarizing',
+    'indexing_chat',
+}
 
 
 def _retain_malayalam_debug_audio(
@@ -446,6 +457,79 @@ def _claim_video_processing(video_id, *, started_status: str = 'processing', sta
     )
     video = Video.objects.filter(id=video_id).first()
     return video, bool(claimed)
+
+
+def _requeue_interrupted_video(video_id) -> tuple[Video | None, bool]:
+    """
+    Move a stranded in-progress video back to `uploaded` so sync recovery can retry it.
+    Uses a conditional update so only one process can claim the recovery.
+    """
+    video = Video.objects.filter(id=video_id).first()
+    if video is None or video.status not in _VIDEO_INTERRUPTED_STATUSES:
+        return video, False
+    updated = Video.objects.filter(
+        id=video_id,
+        status=video.status,
+    ).update(
+        status='uploaded',
+        error_message='Recovered after interrupted in-app processing restart.',
+        updated_at=timezone.now(),
+    )
+    video.refresh_from_db()
+    return video, bool(updated)
+
+
+def resume_interrupted_video_processing_sync(
+    video_id,
+    transcription_language: str = 'auto',
+    output_language: str = 'auto',
+    summary_language_mode: str = 'same_as_transcript'
+):
+    """
+    Best-effort recovery path for DEV_SYNC_MODE on platforms where the web service
+    can restart mid-generation. This is not a substitute for a dedicated worker,
+    but it prevents videos from remaining stranded forever after a reboot.
+    """
+    video, claimed = _requeue_interrupted_video(video_id)
+    if video is None:
+        return {'status': 'error', 'message': 'Video not found', 'video_id': str(video_id)}
+    if not claimed:
+        return {'status': 'skipped', 'message': 'Video was already recovered or finished', 'video_id': str(video_id)}
+
+    if video.youtube_url:
+        logger.info("Recovering interrupted YouTube processing for %s", video_id)
+        return process_youtube_video_sync(
+            video_id,
+            transcription_language=transcription_language,
+            output_language=output_language,
+            summary_language_mode=summary_language_mode,
+        )
+
+    original_path = ''
+    try:
+        original_path = video.original_file.path if video.original_file else ''
+    except Exception:
+        original_path = ''
+
+    if original_path and os.path.exists(original_path):
+        logger.info("Recovering interrupted uploaded-file processing for %s", video_id)
+        return process_video_transcription_sync(
+            video_id,
+            transcription_language=transcription_language,
+            output_language=output_language,
+            summary_language_mode=summary_language_mode,
+        )
+
+    _fail_video_with_logged_status(
+        video,
+        Exception('Original media file is unavailable after service restart; recovery cannot continue.'),
+        source='sync_recovery',
+    )
+    return {
+        'status': 'error',
+        'message': 'Original media file is unavailable after service restart; recovery cannot continue.',
+        'video_id': str(video_id),
+    }
 
 
 def _draft_transcript_text(transcript_payload: dict) -> str:
