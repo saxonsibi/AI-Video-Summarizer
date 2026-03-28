@@ -28,6 +28,7 @@ COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend ./backend
+COPY docker ./docker
 COPY --from=frontend-build /app/backend/frontend_dist ./backend/frontend_dist
 
 WORKDIR /app/backend
@@ -35,4 +36,6 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "gunicorn videoiq.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --threads ${GUNICORN_THREADS:-1} --timeout 300"]
+RUN chmod +x /app/docker/start-web.sh
+
+CMD ["/app/docker/start-web.sh"]
